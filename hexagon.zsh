@@ -93,8 +93,8 @@ _git_info() {
 hexagon_prompt() {
   autoload -U add-zsh-hook
 
-  PROMPT='%{$fg[blue]%}%2~%{$reset_color%} '
-  RPROMPT='$(_git_info)'
+  PROMPT="%{$fg[blue]%}%2~%{$reset_color%} "
+  RPROMPT="$(_git_info)"
 }
 
 hexagon_prompt
