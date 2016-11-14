@@ -1,15 +1,15 @@
 # Hexagon
 # Based on Geometry
 
-GIT_DIRTY="%{$fg[red]%}⬡%{$reset_color%}"
-GIT_CLEAN="%{$fg[green]%}⬢%{$reset_color%}"
+hexagon_colorize() {
+  echo "%F{$1}$2%f"
+}
+
+GIT_DIRTY=$(hexagon_colorize "red" "⬡")
+GIT_CLEAN=$(hexagon_colorize "green" "⬢")
 GIT_REBASE="\uE0A0"
 GIT_UNPULLED="⇣"
 GIT_UNPUSHED="⇡"
-
-ZSH_THEME_GIT_TIME_SINCE_COMMIT_SHORT="%{$fg[green]%}"
-ZSH_THEME_GIT_TIME_SINCE_COMMIT_NEUTRAL="%{$fg[white]%}"
-ZSH_THEME_GIT_TIME_SINCE_COMMIT_LONG="%{$fg[red]%}"
 
 hexagon_git_time_since_commit() {
   if [[ $(git log &> /dev/null | grep -c "^fatal: bad default revision") == 0 ]]; then
@@ -28,17 +28,12 @@ hexagon_git_time_since_commit() {
     sub_minutes=$((minutes % 60))
 
     if [ $hours -gt 24 ]; then
-      commit_age="${days}d"
-      color=$ZSH_THEME_GIT_TIME_SINCE_COMMIT_LONG
+      echo $(hexagon_colorize "red" "${days}d")
     elif [ $minutes -gt 60 ]; then
-      commit_age="${sub_hours}h${sub_minutes}m"
-      color=$ZSH_THEME_GIT_TIME_SINCE_COMMIT_NEUTRAL
+      echo $(hexagon_colorize "white" "${sub_hours}h${sub_minutes}m")
     else
-      commit_age="${minutes}m"
-      color=$ZSH_THEME_GIT_TIME_SINCE_COMMIT_SHORT
+      echo $(hexagon_colorize "green" "${minutes}m")
     fi
-
-    echo "$color$commit_age%{$reset_color%}"
   fi
 }
 
@@ -82,18 +77,18 @@ hexagon_git_remote_check() {
 }
 
 hexagon_git_symbol() {
-  echo "$(hexagon_git_rebase_check) $(hexagon_git_remote_check) "
+  echo "$(hexagon_git_rebase_check) $(hexagon_git_remote_check)"
 }
 
 hexagon_git_info() {
   if git rev-parse --git-dir &> /dev/null; then
-    echo "$(hexagon_git_symbol)%F{242}$(hexagon_git_branch)%{$reset_color%} :: $(hexagon_git_time_since_commit) :: $(hexagon_git_dirty)"
+    echo "$(hexagon_git_symbol) $(hexagon_colorize 242 $(hexagon_git_branch)) :: $(hexagon_git_time_since_commit) :: $(hexagon_git_dirty)"
   fi
 }
 
 hexagon_render() {
-  PROMPT="%{$fg[blue]%}%2~%{$reset_color%} "
-  RPROMPT="$(hexagon_git_info)"
+  PROMPT=$(hexagon_colorize "blue" "%2~ ")
+  RPROMPT=$(hexagon_git_info)
 }
 
 hexagon_prompt() {
