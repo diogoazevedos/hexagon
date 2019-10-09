@@ -1,99 +1,77 @@
-# Hexagon
-# Based on Geometry
+autoload -U add-zsh-hook
 
-hexagon_colorize() {
-  echo "%F{$1}$2%f"
+hexagon::color() {
+  (($# - 2)) || echo -n %F{$1}$2%f
 }
 
-GIT_DIRTY=$(hexagon_colorize "red" "⬡")
-GIT_CLEAN=$(hexagon_colorize "green" "⬢")
-GIT_REBASE="\uE0A0"
-GIT_UNPULLED="⇣"
-GIT_UNPUSHED="⇡"
+hexagon::format() {
+  local seconds=$1
+  local days=$((seconds / 60 / 60 / 24))
+  local hours=$((seconds / 60 / 60 % 24))
+  local minutes=$((seconds / 60 % 60))
+  local seconds=$((seconds % 60))
 
-hexagon_git_time_since_commit() {
-  if [[ $(git log &> /dev/null | grep -c "^fatal: bad default revision") == 0 ]]; then
-    # Get the last commit.
-    last_commit=$(git log --pretty=format:'%at' -1 2> /dev/null)
-    now=$(date +%s)
-    seconds_since_last_commit=$((now - last_commit))
+  local -a human=()
+  local color
 
-    # Totals
-    minutes=$((seconds_since_last_commit / 60))
-    hours=$((seconds_since_last_commit / 3600))
+  ((days > 0)) && human+=${days}d && color=red
+  ((hours > 0)) && human+=${hours}h && : ${color:=white}
+  ((minutes > 0)) && human+=${minutes}m
+  ((seconds > 0)) && human+=${seconds}s && : ${color:=green}
 
-    # Sub-hours and sub-minutes
-    days=$((seconds_since_last_commit / 86400))
-    sub_hours=$((hours % 24))
-    sub_minutes=$((minutes % 60))
+  hexagon::color $color $human[1]
+}
 
-    if [ $hours -gt 24 ]; then
-      echo $(hexagon_colorize "red" "${days}d")
-    elif [ $minutes -gt 60 ]; then
-      echo $(hexagon_colorize "white" "${sub_hours}h${sub_minutes}m")
-    else
-      echo $(hexagon_colorize "green" "${minutes}m")
-    fi
-  fi
+hexagon_git_time() {
+  local last_commit=$(git log -1 --pretty=format:'%at' 2> /dev/null)
+
+  [[ -z $last_commit ]] && hexagon::color default welcome && return
+
+  local now=$(date +%s)
+  local seconds_since_last_commit=$((now - last_commit))
+
+  hexagon::format $seconds_since_last_commit
 }
 
 hexagon_git_branch() {
-  ref=$(git symbolic-ref --short HEAD 2> /dev/null) || \
-  ref=$(git rev-parse --short HEAD 2> /dev/null) || return
-
-  echo $ref
+  hexagon::color 242 $(git symbolic-ref --short HEAD 2> /dev/null || git rev-parse --short HEAD)
 }
 
-hexagon_git_dirty() {
-  if test -z "$(git status --porcelain --ignore-submodules)"; then
-    echo $GIT_CLEAN
-  else
-    echo $GIT_DIRTY
-  fi
+hexagon_git_status() {
+  command git rev-parse --git-dir @> /dev/null || return
+
+  [[ -z $(git status --porcelain --ignore-submodules HEAD) ]] \
+  && [[ -z $(git ls-files --others --modified --exclude-standard $(git rev-parse --show-toplevel)) ]] \
+  && hexagon::color green ⬢ || hexagon::color red ⬡
 }
 
-hexagon_git_rebase_check() {
-  git_dir=$(git rev-parse --git-dir)
+hexagon_git_remote() {
+  local unpushed=⇡
+  local unpulled=⇣
+  local local_commit=$(git rev-parse @ 2> /dev/null)
+  local remote_commit=$(git rev-parse @{u} 2> /dev/null)
 
-  if test -d "$git_dir/rebase-merge" -o -d "$git_dir/rebase-apply"; then
-    echo $GIT_REBASE
-  fi
+  [[ $local_commit == @ || $local_commit == $remote_commit ]] && return
+
+  local common_base=$(git merge-base @ @{u} 2> /dev/null)
+
+  [[ $common_base == $remote_commit ]] && echo -n $unpushed && return
+  [[ $common_base == $local_commit ]]  && echo -n $unpulled && return
+
+  echo -n $unpushed $unpulled
 }
 
-hexagon_git_remote_check() {
-  local_commit=$(git rev-parse "@" 2>&1)
-  remote_commit=$(git rev-parse "@{u}" 2>&1)
-  common_base=$(git merge-base "@" "@{u}" 2>&1) # last common commit
+hexagon_git() {
+  command git rev-parse --git-dir @> /dev/null || return
 
-  if [[ $local_commit != $remote_commit ]]; then
-    if [[ $common_base == $remote_commit ]]; then
-      echo $GIT_UNPUSHED
-    elif [[ $common_base == $local_commit ]]; then
-      echo $GIT_UNPULLED
-    else
-      echo $GIT_UNPUSHED $GIT_UNPULLED
-    fi
-  fi
+  $(git rev-parse --is-bare-repository 2> /dev/null) && hexagon::color blue ⬢ && return
+
+  echo -n $(hexagon_git_remote) $(hexagon_git_branch) $(hexagon_git_time) :: $(hexagon_git_status)
 }
 
-hexagon_git_symbol() {
-  echo "$(hexagon_git_rebase_check) $(hexagon_git_remote_check)"
+hexagon::render() {
+  PROMPT=$(hexagon::color blue "%2~ ")
+  RPROMPT=$(hexagon_git)
 }
 
-hexagon_git_info() {
-  if git rev-parse --git-dir &> /dev/null; then
-    echo "$(hexagon_git_symbol) $(hexagon_colorize 242 $(hexagon_git_branch)) :: $(hexagon_git_time_since_commit) :: $(hexagon_git_dirty)"
-  fi
-}
-
-hexagon_render() {
-  PROMPT=$(hexagon_colorize "blue" "%2~ ")
-  RPROMPT=$(hexagon_git_info)
-}
-
-hexagon_prompt() {
-  autoload -U add-zsh-hook
-  add-zsh-hook precmd hexagon_render
-}
-
-hexagon_prompt
+add-zsh-hook precmd hexagon::render
