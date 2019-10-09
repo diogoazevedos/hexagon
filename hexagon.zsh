@@ -65,8 +65,6 @@ hexagon_git_branch() {
 }
 
 hexagon_git_status() {
-  command git rev-parse --git-dir @> /dev/null || return
-
   [[ -z $(git status --porcelain --ignore-submodules HEAD) ]] \
   && [[ -z $(git ls-files --others --modified --exclude-standard $(git rev-parse --show-toplevel)) ]] \
   && hexagon::color green ⬢ || hexagon::color red ⬡
@@ -89,7 +87,7 @@ hexagon_git_remote() {
 }
 
 hexagon_git() {
-  command git rev-parse --git-dir @> /dev/null || return
+  git rev-parse --git-dir &> /dev/null || return
 
   $(git rev-parse --is-bare-repository 2> /dev/null) && hexagon::color blue ⬢ && return
 
