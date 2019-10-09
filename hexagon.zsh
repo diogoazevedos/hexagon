@@ -22,6 +22,33 @@ hexagon::format() {
   hexagon::color $color $human[1]
 }
 
+zmodload zsh/datetime zsh/stat
+
+HEXAGON_TIME_FILE=$(mktemp)
+
+hexagon::command_start() {
+  touch $HEXAGON_TIME_FILE
+}
+
+add-zsh-hook preexec hexagon::command_start
+
+hexagon_timer() {
+  [[ -z $HEXAGON_TIME_FILE ]] && return
+  [[ -f $HEXAGON_TIME_FILE ]] || return
+
+  local atime=$(zstat +atime $HEXAGON_TIME_FILE)
+  local elapsed
+
+  rm -f $HEXAGON_TIME_FILE
+
+  ((elapsed = $EPOCHSECONDS - $atime))
+  ((elapsed > 5)) && hexagon::format $elapsed
+}
+
+hexagon_jobs() {
+  [[ 0 -ne $(jobs | wc -l) ]] && hexagon::color blue '%(1j.⚙ %j.)'
+}
+
 hexagon_git_time() {
   local last_commit=$(git log -1 --pretty=format:'%at' 2> /dev/null)
 
@@ -70,8 +97,14 @@ hexagon_git() {
 }
 
 hexagon::render() {
+  local -a output=(
+    $(hexagon_timer)
+    $(hexagon_jobs)
+    $(hexagon_git)
+  )
+
   PROMPT=$(hexagon::color blue "%2~ ")
-  RPROMPT=$(hexagon_git)
+  RPROMPT=${(ps. .)output}
 }
 
 add-zsh-hook precmd hexagon::render
