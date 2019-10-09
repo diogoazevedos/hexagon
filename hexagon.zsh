@@ -91,7 +91,7 @@ hexagon_git() {
 
   $(git rev-parse --is-bare-repository 2> /dev/null) && hexagon::color blue ⬢ && return
 
-  echo -n $(hexagon_git_remote) $(hexagon_git_branch) $(hexagon_git_time) :: $(hexagon_git_status)
+  echo -n $(hexagon_git_remote) $(hexagon_git_branch) $(hexagon_git_time) $(hexagon_git_status)
 }
 
 hexagon::render() {
